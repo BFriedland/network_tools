@@ -1,11 +1,5 @@
 import socket
 
-# Smooths out the process of waiting for sockets to communicate:
-# import select
-# Turns out this is not sufficient for an integrated client-server pair,
-# time.sleep() will be used instead
-# ... except that it didn't ...
-
 # Necessary for accepting CLI arguments:
 import sys
 
@@ -20,6 +14,19 @@ class ClientThread(threading.Thread):
 
         super(ClientThread, self).__init__()
 
+    def set_up_client(self):
+
+
+            self.client_socket = socket.socket(
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_IP)
+
+            self.address_for_this_process = ('127.0.0.1', 50000)
+
+            self.client_socket.connect(self.address_for_this_process)
+
+
     def enlistify_cli_arguments(self):
 
         # Send all command line arguments through the socket with sendall():
@@ -33,36 +40,55 @@ class ClientThread(threading.Thread):
 
         return list_of_arguments
 
-    def send_messages(self, messages):
+    def send_messages(self, messages, testing=False):
 
-        # Preempt unicode errors:
-        try:
+        if testing == True:
 
-            for each_message in messages:
+            try:
 
-                each_message.decode('ascii')
+                for each_message in messages:
 
-                self.client_socket.sendall(each_message)
+                    each_message.decode('ascii')
 
-            self.client_socket.shutdown(socket.SHUT_WR)
+                    each_message.encode('ascii')
 
-        except UnicodeDecodeError:
+                    return each_message
 
-            print("Unicode detected, messages not sent\n")
+            except UnicodeDecodeError:
+
+                return "Unicode detected, messages not sent\n"
+
+        else:
+
+            # Preempt unicode errors:
+            try:
+
+                for each_message in messages:
+
+                    each_message.decode('ascii')
+
+                    self.client_socket.sendall(each_message)
+
+                self.client_socket.shutdown(socket.SHUT_WR)
+
+            except UnicodeDecodeError:
+
+                print("Unicode detected, messages not sent\n")
+
 
     def run(self):
 
         # Preempt errors failing to close the socket:
         try:
+            self.set_up_client()
+            #self.client_socket = socket.socket(
+            #    socket.AF_INET,
+            #    socket.SOCK_STREAM,
+            #    socket.IPPROTO_IP)
 
-            self.client_socket = socket.socket(
-                socket.AF_INET,
-                socket.SOCK_STREAM,
-                socket.IPPROTO_IP)
+            #address_for_this_process = ('127.0.0.1', 50000)
 
-            address_for_this_process = ('127.0.0.1', 50000)
-
-            self.client_socket.connect(address_for_this_process)
+            #self.client_socket.connect(address_for_this_process)
 
             # This would be very different if the specs weren't for
             # CLI input only.
@@ -86,25 +112,46 @@ class ServerThread(threading.Thread):
 
         super(ServerThread, self).__init__()
 
+
+    def set_up_server(self):
+
+        self.server_socket = socket.socket(
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            socket.IPPROTO_IP)
+
+        self.address_for_this_process = ('127.0.0.1', 50000)
+
+        self.server_socket.bind(self.address_for_this_process)
+
+        # The next two lines prepare the server for connections:
+        self.server_socket.listen(1)
+
+        self.server_side_connection, self.server_side_client_address \
+            = self.server_socket.accept()
+
+
+
+
     def run(self):
 
         # Preempt errors failing to close the socket:
         try:
+            self.set_up_server()
+            #self.server_socket = socket.socket(
+            #    socket.AF_INET,
+            #    socket.SOCK_STREAM,
+            #    socket.IPPROTO_IP)
 
-            self.server_socket = socket.socket(
-                socket.AF_INET,
-                socket.SOCK_STREAM,
-                socket.IPPROTO_IP)
+            #address_for_this_process = ('127.0.0.1', 50000)
 
-            address_for_this_process = ('127.0.0.1', 50000)
-
-            self.server_socket.bind(address_for_this_process)
+            #self.server_socket.bind(address_for_this_process)
 
             # The next two lines prepare the server for connections:
-            self.server_socket.listen(1)
+            #self.server_socket.listen(1)
 
-            self.server_side_connection, self.server_side_client_address \
-                = self.server_socket.accept()
+            #self.server_side_connection, self.server_side_client_address \
+            #    = self.server_socket.accept()
 
             self.data = self.server_side_connection.recv(32)
 
@@ -120,20 +167,25 @@ class ServerThread(threading.Thread):
             self.server_socket.close()
 
 
-server_thread = ServerThread()
+def run_threads():
+    server_thread = ServerThread()
+    server_thread.start()
 
-server_thread.start()
+    # Hopefully this will be enough of a delay on its own. Otherwise, use:
+    # time.sleep()
+    # It wasn't enough.
+    # time.sleep(2)
+    # or was it?
+    # No need for sleep! Sleep is for the weak!
+    # -- Code Fellows' students' motto
 
-# Hopefully this will be enough of a delay on its own. Otherwise, use:
-# time.sleep()
-# It wasn't enough.
-time.sleep(2)
+    client_thread = ClientThread()
+    client_thread.start()
 
-client_thread = ClientThread()
+    server_thread.join()
+    client_thread.join()
 
-client_thread.start()
 
-# I wonder if the join order needs to be swapped?
-# I hope it doesn't work that way, but perhaps...
-server_thread.join()
-client_thread.join()
+if __name__ == "__main__":
+
+    run_threads()

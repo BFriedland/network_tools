@@ -43,7 +43,9 @@ try:
 
         list_of_arguments.append(sys.argv[each_argument_index])
 
+
     send_messages(list_of_arguments)
+
 
 
 finally:

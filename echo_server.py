@@ -24,8 +24,9 @@ try:
 
     connection, client_address = server_socket.accept()
 
-
-
+    #test if server's close() affects client
+    server_socket.close()
+    '''
     while True:
 
         data = connection.recv(32)
@@ -54,7 +55,7 @@ try:
         else:
 
             select.select()
-
+        '''
 
 
 
