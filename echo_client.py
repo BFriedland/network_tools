@@ -47,7 +47,6 @@ try:
     send_messages(list_of_arguments)
 
 
-
 finally:
     # Always close the socket before leaving.
     client_socket.close()
