@@ -21,8 +21,9 @@ http_server.py
 
 
 
+    References/helped by reading/partial copies/paraphrasing:
 
-
+        http://stackoverflow.com/questions/4685217/parse-raw-http-headers
 
 
 
