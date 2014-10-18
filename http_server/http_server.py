@@ -14,11 +14,13 @@ from BaseHTTPServer import BaseHTTPRequestHandler
 from StringIO import StringIO
 
 
-class ServerThread(threading.Thread):
+class HTTPServerThread(threading.Thread):
 
-    def __init__(self):
+    def __init__(self, ip_address='127.0.0.1', port_number=50000):
 
-        super(ServerThread, self).__init__()
+        super(HTTPServerThread, self).__init__()
+
+        self.server_socket_address = (ip_address, port_number)
 
     def set_up_server(self):
 
@@ -27,15 +29,35 @@ class ServerThread(threading.Thread):
             socket.SOCK_STREAM,
             socket.IPPROTO_IP)
 
-        self.address_for_this_process = ('127.0.0.1', 50000)
-
-        self.server_socket.bind(self.address_for_this_process)
+        self.server_socket.bind(self.server_socket_address)
 
         # The next two lines prepare the server for connections:
         self.server_socket.listen(1)
 
         self.server_side_connection, self.server_side_client_address \
             = self.server_socket.accept()
+
+    def return_http_ok(self):
+
+        ''' Return a well-formed HTTP "200 OK" response as a byte string
+        suitable for transmission through a socket. '''
+
+
+        return "HTTP/1.0 200 OK\r\n\r\n"
+
+
+        ''' Pinging Google returns this:
+        Connected to google.com.
+        Escape character is '^]'.
+        GET /
+        HTTP/1.0 200 OK
+        Date: Sat, 18 Oct 2014 04:39:21 GMT
+        Expires: -1
+        [...]
+        Alternate-Protocol: 80:quic,p=0.01
+
+        <!doctype html>
+        '''
 
     def run(self):
 
@@ -47,6 +69,10 @@ class ServerThread(threading.Thread):
             self.data = self.server_side_connection.recv(1024)
 
             self.parsed_http_request = HTTPRequestParser(self.data)
+
+            print(self.parsed_http_request.__dict__.keys())
+
+
 
             print self.parsed_http_request.error_code       # None  (check this first)
             print self.parsed_http_request.command          # "GET"
@@ -138,7 +164,7 @@ class HTTPRequestParser(BaseHTTPRequestHandler):
 
 
 def run_threads():
-    server_thread = ServerThread()
+    server_thread = HTTPServerThread()
     server_thread.start()
 
     server_thread.join()
@@ -147,81 +173,3 @@ def run_threads():
 if __name__ == "__main__":
 
     run_threads()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
