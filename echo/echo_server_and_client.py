@@ -16,7 +16,6 @@ class ClientThread(threading.Thread):
 
     def set_up_client(self):
 
-
             self.client_socket = socket.socket(
                 socket.AF_INET,
                 socket.SOCK_STREAM,
@@ -25,7 +24,6 @@ class ClientThread(threading.Thread):
             self.address_for_this_process = ('127.0.0.1', 50000)
 
             self.client_socket.connect(self.address_for_this_process)
-
 
     def enlistify_cli_arguments(self):
 
@@ -42,7 +40,7 @@ class ClientThread(threading.Thread):
 
     def send_messages(self, messages, testing=False):
 
-        if testing == True:
+        if testing is True:
 
             try:
 
@@ -75,20 +73,11 @@ class ClientThread(threading.Thread):
 
                 print("Unicode detected, messages not sent\n")
 
-
     def run(self):
 
         # Preempt errors failing to close the socket:
         try:
             self.set_up_client()
-            #self.client_socket = socket.socket(
-            #    socket.AF_INET,
-            #    socket.SOCK_STREAM,
-            #    socket.IPPROTO_IP)
-
-            #address_for_this_process = ('127.0.0.1', 50000)
-
-            #self.client_socket.connect(address_for_this_process)
 
             # This would be very different if the specs weren't for
             # CLI input only.
@@ -112,7 +101,6 @@ class ServerThread(threading.Thread):
 
         super(ServerThread, self).__init__()
 
-
     def set_up_server(self):
 
         self.server_socket = socket.socket(
@@ -130,28 +118,11 @@ class ServerThread(threading.Thread):
         self.server_side_connection, self.server_side_client_address \
             = self.server_socket.accept()
 
-
-
-
     def run(self):
 
         # Preempt errors failing to close the socket:
         try:
             self.set_up_server()
-            #self.server_socket = socket.socket(
-            #    socket.AF_INET,
-            #    socket.SOCK_STREAM,
-            #    socket.IPPROTO_IP)
-
-            #address_for_this_process = ('127.0.0.1', 50000)
-
-            #self.server_socket.bind(address_for_this_process)
-
-            # The next two lines prepare the server for connections:
-            #self.server_socket.listen(1)
-
-            #self.server_side_connection, self.server_side_client_address \
-            #    = self.server_socket.accept()
 
             self.data = self.server_side_connection.recv(32)
 
