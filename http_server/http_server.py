@@ -1,136 +1,167 @@
+
 import socket
 
 import threading
 
-# For parsing HTTP requests.
-# Courtesy of the solution AT:
-# http://stackoverflow.com/questions/4685217/parse-raw-http-headers
-# The BaseHTTPRequestHandler can parse HTTP requests and figure out which
-# error applies for a given request automatically.
-from BaseHTTPServer import BaseHTTPRequestHandler
-# Also from the above-linked SO solution, this library will interpret strings
-# as files. This simplifies the process of separating lines
-# when parsing HTTP requests.
-from StringIO import StringIO
+import BaseHTTPServer
+
+import StringIO
 
 
-class HTTPServerThread(threading.Thread):
+class ThreadedHTTPServer(threading.Thread):
+
+    """ Return an HTTP server object built on the threading.Thread class.
+    Will set up a server and parse HTTP requests using HTTPRequestParser
+    via the autocalled run() method when this Thread is start()ed. """
+
+    ''' Update the server loop you built for the echo server so that it
+    gathers an incoming request, parses it, and returns either a "200 OK"
+    or an appropriate HTTP error. '''
+
+    # The current implementation doesn't require threading on its own,
+    # but it's easy to copy this class and replace the run() method
+    # with the code needed for a client to ease testing.
 
     def __init__(self, ip_address='127.0.0.1', port_number=50000):
 
-        super(HTTPServerThread, self).__init__()
+        super(ThreadedHTTPServer, self).__init__()
 
-        self.server_socket_address = (ip_address, port_number)
+        self.ip_address = ip_address
+        self.port_number = port_number
 
     def set_up_server(self):
 
-        self.server_socket = socket.socket(
-            socket.AF_INET,
-            socket.SOCK_STREAM,
-            socket.IPPROTO_IP)
+            self.server_socket = socket.socket(socket.AF_INET,
+                                               socket.SOCK_STREAM,
+                                               socket.IPPROTO_TCP)
 
-        self.server_socket.bind(self.server_socket_address)
+            self.server_socket.bind((self.ip_address, self.port_number))
 
-        # The next two lines prepare the server for connections:
-        self.server_socket.listen(1)
+            self.server_socket.listen(1)
 
-        self.server_side_connection, self.server_side_client_address \
-            = self.server_socket.accept()
-
-    def return_http_ok(self):
-
-        ''' Return a well-formed HTTP "200 OK" response as a byte string
-        suitable for transmission through a socket. '''
-
-
-        return "HTTP/1.0 200 OK\r\n\r\n"
-
-
-        ''' Pinging Google returns this:
-        Connected to google.com.
-        Escape character is '^]'.
-        GET /
-        HTTP/1.0 200 OK
-        Date: Sat, 18 Oct 2014 04:39:21 GMT
-        Expires: -1
-        [...]
-        Alternate-Protocol: 80:quic,p=0.01
-
-        <!doctype html>
-        '''
+            self.connection, self.client_address = self.server_socket.accept()
 
     def run(self):
 
-        # Preempt errors failing to close the socket:
         try:
 
+            # Set up the server once, outside the while loop.
             self.set_up_server()
 
-            self.data = self.server_side_connection.recv(1024)
+            while True:
 
-            self.parsed_http_request = HTTPRequestParser(self.data)
+                # Receive data continually.
+                data = self.connection.recv(1024)
 
-            print(self.parsed_http_request.__dict__.keys())
+                if len(data) > 0:
 
+                    # HTTPRequestParser is a custom-crafted instance
+                    # of BaseHTTPRequestHandler that parses whatever
+                    # HTTP request string is handed to it at call time.
+                    # The parsed request can then have its parts referenced
+                    # by checking self.parsed_http_response.partnamegoeshere
+                    parsed_http_response = HTTPRequestParser(data)
 
+                    # First, the catchall error case:
+                    if parsed_http_response.error_code is not None:
 
-            print self.parsed_http_request.error_code       # None  (check this first)
-            print self.parsed_http_request.command          # "GET"
-            print self.parsed_http_request.path             # "/who/ken/trust.html"
-            print self.parsed_http_request.request_version  # "HTTP/1.1"
-            print len(self.parsed_http_request.headers)     # 3
-            print self.parsed_http_request.headers.keys()   # ['accept-charset', 'host', 'accept']
+                        ''' Implement a function that will return
+                        a well formed HTTP error response
+                        (The error code and message should be
+                        parameterized so that this function
+                        can be used in a variety of situations).
+                        The response should be a byte string
+                        suitable for transmission through a socket. '''
+
+                        print("[Sent] %s %s %s\r\n" % (
+                            parsed_http_response.request_version,
+                            parsed_http_response.error_code,
+                            parsed_http_response.error_message))
+
+                        # This will return properly formatted
+                        # requests for all errors.
+                        self.connection.sendall("%s %s %s\r\n\r\n" % (
+                            parsed_http_response.request_version,
+                            parsed_http_response.error_code,
+                            parsed_http_response.error_message))
+
+                    # Second, the version forbidden case:
+                    elif parsed_http_response.request_version != "HTTP/1.1":
+
+                        ''' The function should only accept HTTP/1.1
+                        requests, a request of any other protocol
+                        should raise an appropriate error '''
+
+                        print("[Sent] %s 505 HTTP Version Not Supported\r\n"
+                              % (parsed_http_response.request_version))
+
+                        self.connection.sendall(
+                            "%s 505 HTTP Version Not Supported\r\n\r\n"
+                            % (parsed_http_response.request_version))
+
+                    # Third, the method forbidden case:
+                    elif parsed_http_response.command != "GET":
+
+                        ''' The function should only accept GET requests,
+                        any other request should raise an appropriate error '''
+
+                        print("[Sent] %s 405 Method Not Allowed\r\n"
+                              % (parsed_http_response.command))
+
+                        self.connection.sendall("%s 405 Method Not Allowed"
+                                                "\r\n\r\n" %
+                                                (parsed_http_response.command))
+
+                    # Fourth, the acceptable request case:
+                    elif parsed_http_response.error_code is None:
+
+                        ''' Implement a function that will return
+                        a well formed HTTP "200 OK" response as
+                        a byte string suitable for transmission
+                        through a socket. '''
+
+                        # Apparently, "200 OK" is not an error code.
+                        self.connection.sendall("%s 200 OK\r\n" %
+                                                (parsed_http_response.
+                                                 request_version))
+
+                        print("[Sent] %s 200 OK" %
+                              (parsed_http_response.request_version))
+
+                        ''' Implement a function that will parse
+                        an HTTP request and return the URI requested. '''
+
+                        # After the request has been checked, return the URI.
+                        self.connection.sendall(parsed_http_response.path + "\r\n\r\n")
+                        #                        "\r\n\r\n")
+
+                        print("[Sent] %s\r\n" % (parsed_http_response.path))
+
+                # Breaking the server if client sends a blank line:
+                if data == "\r\n" or data == "\r\n\r\n":
+
+                    break
 
         finally:
 
-            # Always close the socket before leaving.
-            self.server_socket.close()
+            # Cleaning up the socket after we're done:
+            if self.server_socket is not None:
 
-    '''
-    def return_http_response(self, which_http_code):
+                # debugging sanity check
+                import time
+                time.sleep(1)
 
-        """ Returns whichever kind of HTTP response
-        is requested as the first parameter. """
-
-        http_error_dictionary = {
-
-            "ok": bytearray('HTTP/1.0 200 OK'),
-            "moved": bytearray('HTTP/1.0 301 Moved Permanently'),
-            "wrong_credentials": bytearray('HTTP/1.0 401 Wrong Credentials'),
-            "forbidden": bytearray('HTTP/1.0 403 Forbidden'),
-            "not_found": bytearray('HTTP/1.0 404 Not Found'),
-            "internal_error": bytearray('HTTP/1.0 500 Internal Server Error'),
-
-        }
-
-        try:
-
-            return 'HTTP/1.0' + http_error_dictionary[which_error_type] \
-                + '\r\n\r\n'
-
-        except:
-
-            raise Exception
-    '''
-
-    """
-    # def parse_http_request(self, the_request_to_parse):
-
-        # example of non-operator string joins
-        request_text = (
-            'GET /who/ken/trust.html HTTP/1.1\r\n'
-            'Host: cm.bell-labs.com\r\n'
-            'Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3\r\n'
-            'Accept: text/html;q=0.9,text/plain\r\n'
-            '\r\n'
-        )
-    """
+                #self.server_socket.shutdown(socket.SHUT_RDWR)
+                self.server_socket.close()
 
 
-class HTTPRequestParser(BaseHTTPRequestHandler):
+class HTTPRequestParser(BaseHTTPServer.BaseHTTPRequestHandler):
 
-    """ Return an object that contains variables for  of
-    the http_request it is provided as a parameter. """
+    """ Return an object that contains variables for interpreting
+    the pieces of the http_request it is provided as a parameter. """
+
+    # I read about this part of the standard library here:
+    # http://stackoverflow.com/questions/4685217/parse-raw-http-headers
 
     def __init__(self, http_request):
 
@@ -139,7 +170,7 @@ class HTTPRequestParser(BaseHTTPRequestHandler):
         # They are being set and called in the poorly-interfaced manner
         # BaseHTTPRequestHandler requires.
 
-        self.rfile = StringIO(http_request)
+        self.rfile = StringIO.StringIO(http_request)
         self.raw_requestline = self.rfile.readline()
 
         # This merely ensures it returns None if no error has been found.
@@ -164,9 +195,9 @@ class HTTPRequestParser(BaseHTTPRequestHandler):
 
 
 def run_threads():
-    server_thread = HTTPServerThread()
-    server_thread.start()
 
+    server_thread = ThreadedHTTPServer()
+    server_thread.start()
     server_thread.join()
 
 
