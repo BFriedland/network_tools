@@ -1,6 +1,3 @@
-import socket
-import time
-import threading
 # Necessary for accepting CLI arguments:
 import sys
 
@@ -10,30 +7,6 @@ import unittest
 
 
 class test_EchoServerAndClient(unittest.TestCase):
-
-    '''
-    def setUp(self):
-
-        # This tests the ServerThread constructor.
-        self.echo_server_thread = echo.ServerThread()
-
-        # This tests the ClientThread constructor.
-        self.echo_client_thread = echo.ClientThread()
-
-        echo.run_threads()
-    '''
-    '''
-    def tearDown(self):
-
-        self.echo_client_thread.join()
-        self.echo_server_thread.join()
-
-        #self.echo_client_thread.client_socket.shutdown(SHUT_WR)
-        self.echo_client_thread.client_socket.close()
-
-        #self.echo_server_thread.server_socket.shutdown(SHUT_WR)
-        self.echo_server_thread.server_socket.close()
-    '''
 
     def test_set_up_client(self):
 
@@ -77,8 +50,6 @@ class test_EchoServerAndClient(unittest.TestCase):
         del sys.argv[1:]
         sys.argv.append(u'This is a unicode test string.')
 
-        # self.test_echo_server_and_client_together()
-
         # Testing the whole socket protocol is either 100% linear and
         # uneventful and will be tested by the main execution line...
         # or it is fraught with horrors and mustn't be tested.
@@ -86,13 +57,6 @@ class test_EchoServerAndClient(unittest.TestCase):
 
         the_message_test_string = self.echo_client_thread.send_messages(
             unicode_test_string, testing=True)
-
-        # ...
-
-        # The testing framework has decided they don't want
-        # test-created threads to have sockets without running
-        # the full server program, for some reason.
-        # Got to test it with test_echo_server_and_client() instead.
 
 
 unittest.main()
