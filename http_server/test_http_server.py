@@ -1,87 +1,70 @@
+
 import socket
-import threading
-import BaseHTTPServer
-import StringIO
 import unittest
-import http_server as http
+import http_server
+# sdiehl.github.io/gevent-tutorial
+from gevent.server import StreamServer
 
 
-class test_ThreadedHTTPServer(unittest.TestCase):
+class test_HTTPServer(unittest.TestCase):
 
-    def set_up_test_server(self):
+    def setUp(self):
 
-        self.test_server_thread = http.ThreadedHTTPServer()
+        self.client_socket = socket.socket(
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            socket.IPPROTO_IP)
 
-        self.test_server_thread.start()
+        self.client_socket.connect(('127.0.0.1', 50000))
 
-    def test_200_ok(self):
+    # All the test_return_x functions test the functions
+    # of the HTTPRequestParser, too, as well as handle(),
+    # send_message, and run_server(), since the code must
+    # run through all of them in order to run these asserts,
+    # and the server program must be started to test it.
+    def test_return_http_ok(self):
 
-        self.set_up_test_server()
+        self.setUp()
 
-        test_client_for_200_ok = ThreadedHTTPClient("GET / HTTP/1.1\r\n")
+        self.client_socket.sendall("GET / HTTP/1.1")
+        received_data = self.client_socket.recv(1024)
+        self.client_socket.close()
 
-        result_of_running_test = test_client_for_200_ok.run()
+        self.assertEqual(received_data, "HTTP/1.1 200 OK\r\n/\r\n\r\n")
 
-        assertEqual(result_of_running_test[:15], "HTTP/1.1 200 OK")
+    def test_return_unsupported_version(self):
 
-# The ThreadedHTTPClient is only needed for testing the server.
-# Because it isn't in the specs and is used exclusively for testing,
-# I put it in the testing file.
-class ThreadedHTTPClient(threading.Thread):
+        self.setUp()
 
-    """ Return an HTTP client object built on the threading.Thread class.
-    Will set up a client and issue HTTP requests via the autocalled run()
-    method when this Thread is start()ed. """
+        self.client_socket.sendall("GET / HTTP/0.9")
+        received_data = self.client_socket.recv(1024)
+        self.client_socket.close()
 
-    def __init__(self, string_to_test, ip_address='127.0.0.1',
-                 port_number=50000):
+        self.assertEqual(received_data,
+                         "HTTP/0.9 505 HTTP Version Not Supported\r\n\r\n")
 
-        super(ThreadedHTTPClient, self).__init__()
+    def test_return_method_not_allowed(self):
 
-        self.ip_address = ip_address
-        self.port_number = port_number
-        self.string_to_test = string_to_test
+        self.setUp()
 
-    def set_up_client(self):
+        self.client_socket.sendall("POST / HTTP/1.1")
+        received_data = self.client_socket.recv(1024)
+        self.client_socket.close()
 
-            self.client_socket = socket.socket(socket.AF_INET,
-                                               socket.SOCK_STREAM,
-                                               socket.IPPROTO_TCP)
+        self.assertEqual(received_data,
+                         "HTTP/1.1 405 Method Not Allowed\r\n\r\n")
 
-            self.client_socket.connect((self.ip_address, self.port_number))
+    def test_return_error(self):
 
-    def run(self):
+        self.setUp()
 
-        try:
+        self.client_socket.sendall("GET/HTTP/1.1")
+        received_data = self.client_socket.recv(1024)
+        self.client_socket.close()
 
-            self.set_up_client()
-
-            print("Got into the try block in run()")
-
-            # First, issue the request to the server to test its response:
-            self.client_socket.sendall(self.string_to_test)
-
-            print("Got past sendall")
-
-            # Receive the server's response and store it to return
-            # after the socket is closed:
-            self.data_to_return = client_socket.recv(1024)
-
-            if self.data_to_return is None:
-                print("uhoh, data_to_return is NONE")
-            print(self.data_to_return)
-
-            #self.client_socket.sendall("\r\n\r\n")
-
-        finally:
-
-            # Cleaning up the socket after we're done:
-            if self.client_socket is not None:
-
-                self.client_socket.shutdown(socket.SHUT_RDWR)
-                self.client_socket.close()
-
-            return self.data_to_return
+        self.assertEqual(received_data,
+                         "HTTP/0.9 400 Bad request syntax ('GET/HTTP/1.1')"
+                         "\r\n\r\n")
 
 
 unittest.main()

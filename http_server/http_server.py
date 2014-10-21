@@ -1,158 +1,92 @@
 
 import socket
-
-import threading
-
 import BaseHTTPServer
-
 import StringIO
+# sdiehl.github.io/gevent-tutorial
+from gevent.server import StreamServer
 
 
-class ThreadedHTTPServer(threading.Thread):
+def handle(socket, address):
 
-    """ Return an HTTP server object built on the threading.Thread class.
-    Will set up a server and parse HTTP requests using HTTPRequestParser
-    via the autocalled run() method when this Thread is start()ed. """
+    unparsed_data = socket.recv(1024)
+    parsed_http_response = HTTPRequestParser(unparsed_data)
 
-    ''' Update the server loop you built for the echo server so that it
-    gathers an incoming request, parses it, and returns either a "200 OK"
-    or an appropriate HTTP error. '''
+    # Message formatting and message sending are separated for ease of testing.
 
-    # The current implementation doesn't require threading on its own,
-    # but it's easy to copy this class and replace the run() method
-    # with the code needed for a client to ease testing.
+    if parsed_http_response.error_code is not None:
+        server_response = return_error(parsed_http_response)
+        send_message(socket, server_response)
 
-    def __init__(self, ip_address='127.0.0.1', port_number=50000):
+    elif parsed_http_response.request_version != "HTTP/1.1":
+        server_response = return_unsupported_version(parsed_http_response)
+        send_message(socket, server_response)
 
-        super(ThreadedHTTPServer, self).__init__()
+    elif parsed_http_response.command != "GET":
+        server_response = return_method_not_allowed(parsed_http_response)
+        send_message(socket, server_response)
 
-        self.ip_address = ip_address
-        self.port_number = port_number
+    elif parsed_http_response.error_code is None:
+        server_response = return_http_ok(parsed_http_response)
+        send_message(socket, server_response)
 
-    def set_up_server(self):
+    socket.close()
 
-            self.server_socket = socket.socket(socket.AF_INET,
-                                               socket.SOCK_STREAM,
-                                               socket.IPPROTO_TCP)
 
-            self.server_socket.bind((self.ip_address, self.port_number))
+def send_message(socket, message):
 
-            self.server_socket.listen(1)
+    socket.send(message)
 
-            self.connection, self.client_address = self.server_socket.accept()
 
-    def run(self):
+# First, the generic error case:
+def return_error(parsed_http_response):
+    ''' Implement a function that will return
+    a well formed HTTP error response
+    (The error code and message should be
+    parameterized so that this function
+    can be used in a variety of situations).
+    The response should be a byte string
+    suitable for transmission through a socket. '''
 
-        try:
+    # This will return properly formatted
+    # requests for all errors.
+    return "%s %s %s\r\n\r\n" % (
+        parsed_http_response.request_version,
+        parsed_http_response.error_code,
+        parsed_http_response.error_message)
 
-            # Set up the server once, outside the while loop.
-            self.set_up_server()
 
-            while True:
+# Second, the version forbidden case:
+def return_unsupported_version(parsed_http_response):
 
-                # Receive data continually.
-                data = self.connection.recv(1024)
+    ''' The function should only accept HTTP/1.1
+    requests, a request of any other protocol
+    should raise an appropriate error '''
 
-                if len(data) > 0:
+    return "%s 505 HTTP Version Not Supported\r\n\r\n" \
+        % (parsed_http_response.request_version)
 
-                    # HTTPRequestParser is a custom-crafted instance
-                    # of BaseHTTPRequestHandler that parses whatever
-                    # HTTP request string is handed to it at call time.
-                    # The parsed request can then have its parts referenced
-                    # by checking self.parsed_http_response.partnamegoeshere
-                    parsed_http_response = HTTPRequestParser(data)
 
-                    # First, the catchall error case:
-                    if parsed_http_response.error_code is not None:
+# Third, the method forbidden case:
+def return_method_not_allowed(parsed_http_response):
 
-                        ''' Implement a function that will return
-                        a well formed HTTP error response
-                        (The error code and message should be
-                        parameterized so that this function
-                        can be used in a variety of situations).
-                        The response should be a byte string
-                        suitable for transmission through a socket. '''
+    ''' The function should only accept GET requests,
+    any other request should raise an appropriate error '''
 
-                        print("[Sent] %s %s %s\r\n" % (
-                            parsed_http_response.request_version,
-                            parsed_http_response.error_code,
-                            parsed_http_response.error_message))
+    return "%s 405 Method Not Allowed\r\n\r\n" \
+        % (parsed_http_response.request_version)
 
-                        # This will return properly formatted
-                        # requests for all errors.
-                        self.connection.sendall("%s %s %s\r\n\r\n" % (
-                            parsed_http_response.request_version,
-                            parsed_http_response.error_code,
-                            parsed_http_response.error_message))
 
-                    # Second, the version forbidden case:
-                    elif parsed_http_response.request_version != "HTTP/1.1":
+# Fourth, the acceptable request case:
+def return_http_ok(parsed_http_response):
 
-                        ''' The function should only accept HTTP/1.1
-                        requests, a request of any other protocol
-                        should raise an appropriate error '''
+    ''' Implement a function that will return
+    a well formed HTTP "200 OK" response as
+    a byte string suitable for transmission
+    through a socket. '''
 
-                        print("[Sent] %s 505 HTTP Version Not Supported\r\n"
-                              % (parsed_http_response.request_version))
-
-                        self.connection.sendall(
-                            "%s 505 HTTP Version Not Supported\r\n\r\n"
-                            % (parsed_http_response.request_version))
-
-                    # Third, the method forbidden case:
-                    elif parsed_http_response.command != "GET":
-
-                        ''' The function should only accept GET requests,
-                        any other request should raise an appropriate error '''
-
-                        print("[Sent] %s 405 Method Not Allowed\r\n"
-                              % (parsed_http_response.command))
-
-                        self.connection.sendall("%s 405 Method Not Allowed"
-                                                "\r\n\r\n" %
-                                                (parsed_http_response.command))
-
-                    # Fourth, the acceptable request case:
-                    elif parsed_http_response.error_code is None:
-
-                        ''' Implement a function that will return
-                        a well formed HTTP "200 OK" response as
-                        a byte string suitable for transmission
-                        through a socket. '''
-
-                        # Apparently, "200 OK" is not an error code.
-                        self.connection.sendall("%s 200 OK\r\n" %
-                                                (parsed_http_response.
-                                                 request_version))
-
-                        print("[Sent] %s 200 OK" %
-                              (parsed_http_response.request_version))
-
-                        ''' Implement a function that will parse
-                        an HTTP request and return the URI requested. '''
-
-                        # After the request has been checked, return the URI.
-                        self.connection.sendall(parsed_http_response.path + "\r\n\r\n")
-                        #                        "\r\n\r\n")
-
-                        print("[Sent] %s\r\n" % (parsed_http_response.path))
-
-                # Breaking the server if client sends a blank line:
-                if data == "\r\n" or data == "\r\n\r\n":
-
-                    break
-
-        finally:
-
-            # Cleaning up the socket after we're done:
-            if self.server_socket is not None:
-
-                # debugging sanity check
-                import time
-                time.sleep(1)
-
-                #self.server_socket.shutdown(socket.SHUT_RDWR)
-                self.server_socket.close()
+    # Apparently, "200 OK" is not an error code.
+    return "%s 200 OK\r\n%s\r\n\r\n" % (parsed_http_response.request_version,
+                                        parsed_http_response.path)
 
 
 class HTTPRequestParser(BaseHTTPServer.BaseHTTPRequestHandler):
@@ -194,13 +128,11 @@ class HTTPRequestParser(BaseHTTPServer.BaseHTTPRequestHandler):
         self.error_message = error_message
 
 
-def run_threads():
-
-    server_thread = ThreadedHTTPServer()
-    server_thread.start()
-    server_thread.join()
+def run_server():
+    http_server = StreamServer(('127.0.0.1', 50000), handle)
+    http_server.serve_forever()
 
 
 if __name__ == "__main__":
 
-    run_threads()
+    run_server()

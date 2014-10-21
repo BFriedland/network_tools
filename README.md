@@ -7,11 +7,15 @@ network_tools
 
 http_server.py
 
+    An HTTP server program.
 
+    It returns the URI of whatever request string it is handed through
+        a socket, but only if the request is properly formatted for an
+        HTTP/1.1 GET request.
 
+    Dependencies include gevent and Python 2.7
 
-
-
+    There are only internal calls, all of which are under development.
 
 
 
