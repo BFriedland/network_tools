@@ -19,9 +19,9 @@ class test_HTTPServer(unittest.TestCase):
 
     # All the test_return_x functions test the functions
     # of the HTTPRequestParser, too, as well as handle(),
-    # send_message, and run_server(), since the code must
-    # run through all of them in order to run these asserts,
-    # and the server program must be started to test it.
+    # and run_server(), since the code must run through
+    # all of them in order to run these asserts, and the
+    # server program must be started to test it.
     def test_return_http_ok(self):
 
         self.setUp()
