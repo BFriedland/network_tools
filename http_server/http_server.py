@@ -2,7 +2,9 @@
 import socket
 import BaseHTTPServer
 import StringIO
-# sdiehl.github.io/gevent-tutorial
+# for http response codes:
+import datetime
+# sdiehl.github.io/gevent-tutorial:
 from gevent.server import StreamServer
 
 # see: datetime httplib
@@ -10,15 +12,13 @@ from gevent.server import StreamServer
 # opening on your file system with URLlib, using pathlib to get an absolute path (security violation)
 
 
-"""
-def return_file_from_directory(path_from_httpparserclass):
+# this function is still pseudocode!
+def return_file_or_directory(path_from_httpparserclass):
 
     '''If the resource identified by the URI is a directory,
     return a simple HTML listing of that directory as the body.'''
     if uri == '/webroot' or '/webroot/':
         return listing of that directory
-
-
 
     elif uri == '/webroot/images' or '/webroot/images/':
         return listing of that directory
@@ -65,17 +65,50 @@ def return_file_from_directory(path_from_httpparserclass):
                     ''' Any errors raised should be appropriately handled
                     and returned to the client as HTTP error responses
                     with appropriate codes. '''
+
                     return_file_not_found(parsed_http_response)
 
-"""
 
 
 
+list of possible content types:
+
+content_type = "text/html; charset=UTF-8"
 
 
+def return_ok_http_file_response(parsed_http_response, file_data, content_type):
+    ''' Craft a string response using data from
+    the response parser, file data, and
+    a content type string. '''
 
+    ok_http_file_response = ("%s 200 OK\r\n"
+                             "Date: %s\r\n"
+                             "Content-Type: %s\r\n"
+                             "\r\n"
+                             "<!DOCTYPE HTML><html><body>%s</body></html>"
+                             % (parsed_http_response.request_version,
+                                datetime.datetime.now(),
+                                content_type,
+                                file_data))
 
+return ok_http_file_response
 
+def return_ok_http_directory_response(parsed_http_response, uri):
+    ''' Craft a string response using data from
+    the response parser, file data, and
+    a content type string. '''
+
+    ok_http_directory_response = ("%s 200 OK\r\n"
+                                  "Date: %s\r\n"
+                                  "Content-Type: %s\r\n"
+                                  "\r\n"
+                                  "<!DOCTYPE HTML><html><body>%s</body></html>"
+                                  % (parsed_http_response.request_version,
+                                     datetime.datetime.now(),
+                                     content_type,
+                                     file_data))
+
+    return ok_http_file_response
 
 def handle(socket, address):
 
@@ -109,15 +142,14 @@ def handle(socket, address):
 
 # Zeroeth, the missing file case:
 def return_file_not_found(parsed_http_response):
-    ''' Any errors raised should be appropriately handledand returned
+    ''' Any errors raised should be appropriately handled and returned
     to the client as HTTP error responses with appropriate codes. '''
 
     # This is effectively an internal error that requires me to define
     # what finding and not finding a file means before it can be triggered.
-    return "%s 404 File Not Found\r\n\r\n" & (
-        parsed_http_response.request_version)
-
-
+    return "%s 404 File not found ('%s')\r\n\r\n" & (
+        parsed_http_response.request_version,
+        parsed_http_response.path)
 
 
 # First, the generic error case:
