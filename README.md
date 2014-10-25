@@ -7,15 +7,42 @@ network_tools
 
 http_server.py
 
-    An HTTP server program.
+    An HTTP server program that provides access to files in a directory.
 
-    It returns the URI of whatever request string it is handed through
-        a socket, but only if the request is properly formatted for an
-        HTTP/1.1 GET request.
+    When called with /webroot/ or /webroot/images as the URI, it will
+        return an HTML-formatted directory listing.
+    When called with the path of a file in the directory, it will
+        return the contents of that file as a binary.
 
     Dependencies include gevent and Python 2.7
 
-    There are only internal calls, all of which are under development.
+    There are ten global functions, all of which
+        are internal to the server's operation, and one class, also internal.
+
+        return_listing_of_this_directory()
+
+        return_requested_file_or_directory()
+
+        return_ok_http_file_or_directory_response()
+
+        handle(), which runs the server's request-response cycle.
+
+        The following error code formatting functions, used internally:
+            return_file_not_found()
+            return_error()
+            return_unsupported_version()
+            return_method_not_allowed()
+            return_http_ok()
+
+        HTTPRequestParser(BaseHTTPServe.BaseHTTPRequestHandler), for parsing
+            HTTP requests.
+
+            send_error() overwrites BaseHTTPServer.BaseHTTPRequestHandler's
+                previous send_error method.
+
+        run_server(), starts the program. Executed when the file is run.
+
+
 
 
 
@@ -31,7 +58,7 @@ http_server.py
 
         sdiehl.github.io/gevent-tutorial
 
-
+        http://stackoverflow.com/questions/8369219/how-do-i-read-a-text-file-into-a-string-variable-in-python
 
 
 
