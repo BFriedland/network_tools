@@ -12,6 +12,8 @@ from gevent.server import StreamServer
 # So we can manage the directory:
 import os
 
+import gevent_server
+
 # see: datetime httplib
 # "size of the content" means number of bytes in the string
 # opening on your file system with URLlib, using pathlib to get
@@ -312,7 +314,7 @@ class HTTPRequestParser(BaseHTTPServer.BaseHTTPRequestHandler):
 
 
 def run_server():
-    http_server = StreamServer(('127.0.0.1', 50000), handle)
+    http_server = StreamServer(('127.0.0.1', 50000), gevent_server.handle)
     http_server.serve_forever()
 
 
