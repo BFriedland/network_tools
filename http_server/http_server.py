@@ -1,114 +1,173 @@
 
+# Because, for some sadistic reason, I must master sockets:
 import socket
+# For easy parsing of the HTTP requests:
 import BaseHTTPServer
+# Helps BaseHTTPServer:
 import StringIO
-# for http response codes:
+# For making http response headers:
 import datetime
 # sdiehl.github.io/gevent-tutorial:
 from gevent.server import StreamServer
+# So we can manage the directory:
+import os
 
 # see: datetime httplib
 # "size of the content" means number of bytes in the string
-# opening on your file system with URLlib, using pathlib to get an absolute path (security violation)
+# opening on your file system with URLlib, using pathlib to get
+# an absolute path (security violation)
 
 
-# this function is still pseudocode!
-def return_file_or_directory(path_from_httpparserclass):
+def return_listing_of_this_directory(supplied_directory_path):
+
+    # Chop the webroot off before searching for a directory.
+    # I'm including this secondary assurance that /webroot/ is the path
+    # being requested by the user because it would be insecure to allow
+    # a user to access the base server files, and it's conceivable
+    # the next person to maintain this code base will put in some function
+    # which wouldn't check for webroot-specificity.
+    # The constant 9 is simply /webroot/
+    # This assumes all paths in HTTPRequestParser.path are always
+    # going to be something like /webroot/images/testimage.jpg
+    # That is, all calls to the server looking for a file or folder
+    # will start this way.
+    supplied_directory_path = supplied_directory_path[9:]
+    supplied_directory_path = "./webroot/" + supplied_directory_path
+    # ...
+    # This works, but I didn't really need to remove /webroot/ and replace it
+    # if I'm going to add "." at the front, since you can't get any kind of
+    # insecurities while being entirely contained within /webroot/.
+    # Leaving it in because I'm still behind on assignments and
+    # these comments should make it clear how to change it to be
+    # less application-specific.
+
+    # List comprehension.
+    return [each_thing for each_thing in
+            os.listdir(supplied_directory_path)]
+
+
+def return_requested_file_or_directory(parsed_http_response):
 
     '''If the resource identified by the URI is a directory,
-    return a simple HTML listing of that directory as the body.'''
-    if uri == '/webroot' or '/webroot/':
-        return listing of that directory
+    return a simple HTML listing of that directory as the body.
 
-    elif uri == '/webroot/images' or '/webroot/images/':
-        return listing of that directory
+    Return a string containing HTML-formatted directory info
+    or whatever data is in the file requested. '''
+
+    # Initialize the content type to reflect the fact that
+    # non-file content is going to have to be text/html:
+    content_type = 'text/html; charset=UTF-8'
+
+    # I know there's some more procedural way to generate these directory
+    # listings, but it could take me longer to figure out how to make it
+    # than to hardcode our only two cases.
+    # Plus there might be more security issues to consider.
+
+    # Don't accept '/webroot' or '/webroot/images' if
+    # they don't have a trailing forward slash.
+    if parsed_http_response.path == '/webroot/':
+
+        list_of_this_directory = \
+            return_listing_of_this_directory(parsed_http_response.path)
+
+        # Crafting html here, since the specifications say to return
+        # a directory listing in this part of the conditional
+        # rather than a file.
+        return_string = "<pre>/webroot</pre>"
+
+        # For some reason I can't insert  tags here.
+        # Only \n will display properly, since SOMETHING is
+        # putting <pre></pre> tags around all of my content!
+        # I have no idea what or why and the internet didn't know either.
+        # ...
+        # I was returning it from the wrong function.
+        # It was calling return_requested_file_or_directory() instead,
+        # which did not provide a header that would tell the browser
+        # what the content type was.
+        # I fixed this by pointing it to the correct function,
+        # return_ok_http_file_or_directory_response().
+        # ...
+        # There must be a special tag for indenting things.
+        # HTML ignored my indenting spaces untill I <pre></pre> formatted them.
+        # Also this made the break tags superfluous since
+        # the pre tags add breaks anyways.
+        for each_file_or_folder in list_of_this_directory:
+            return_string += \
+                "<pre>    " + str(each_file_or_folder) + "</pre>"
+
+    elif parsed_http_response.path == '/webroot/images/':
+
+        list_of_this_directory = \
+            return_listing_of_this_directory(parsed_http_response.path)
+
+        # Crafting html here, since the specifications say to return
+        # a directory listing in this part of the conditional
+        # rather than a file.
+        return_string = "<pre>/webroot</pre><pre>    /images</pre>"
+
+        for each_file_or_folder in list_of_this_directory:
+            return_string += \
+                "<pre>        " + str(each_file_or_folder) + "</pre>"
 
     else:
 
-        # make this a top level function
-        def figure_out_if_file_is_in_the_directory(filename_as_a_string):
+        try:
 
-            directory_list = # giant hardcoded directory list goes here for simplicity
-            for each in directory_list:
+            # This lets us chop off the start of the string
+            # and replace it with "./webroot/"
+            file_path = parsed_http_response.path
+            file_path = file_path[9:]
+            file_path = "./webroot/" + file_path
 
-                if uri == each:
+            # Takes newlines out of the file:
+            with open(file_path, "r") as the_requested_file:
+                file_data = the_requested_file.read().replace('\n', '')
+                file_data = ''.join(file_data)
 
-                    ''' if the resource identified by the URI is a file,
-                    return the contents of the file as the body.'''
+                # other possibility:
+                # file_data = the_requested_file.read()
 
-                    # DO NOT do this in this function:
-                    #headers = construct_a_header_with_content_type_in_it(uri_extension_string)
-                    # INSTEAD do this in a separate function, craft_ok_http_response()
+                return_string = file_data
 
+            # Check if the file has a three-character extension:
+            if file_path[-4:][0] == ".":
+                # If it does, set the content_type equal to the extension.
+                content_type = file_path[-4:]
 
-                    '''The content type value should be related to the type of file.'''
+        # Yes, this is where the 404 goes.
+        # Remember, it's the trailing else: part of this conditional,
+        # so it will grab all the possible misspellings etc.
+        except:
 
+            # Then the request is not in the directory.
+            return_string = \
+                return_file_not_found(parsed_http_response)
 
-                    ''' Ensure that the body of the requested resource is returned in a "200 OK" response. '''
-                    # to do this, make a second version of return_http_ok(parsed_http_response)
-                    # that version will be the same as the first but with headers and content equal to the binary of the file (utf-8, python's string default, will be fine right?)
-
-                    # DO NOT send it straight to
-                    #socket_send_to_client(that_file.open(), headers)
-                    # INSTEAD
-                    return contents_of_the_file
-
-                    # DO NOT do this in this function
-                    #return ("<body>%s</body>" % (contents_of_the_file))
-                    # INSTEAD do this in a separate function, craft_ok_http_response()
-
-                ''' If the requested resource cannot be found,
-                raise an appropriate error'''
-
-                else:
-
-                    ''' Any errors raised should be appropriately handled
-                    and returned to the client as HTTP error responses
-                    with appropriate codes. '''
-
-                    return_file_not_found(parsed_http_response)
+    return return_string, content_type
 
 
+def return_ok_http_file_or_directory_response(parsed_http_response):
 
+    # NOTE! This function returns two different pieces of information.
+    # The specifications require content type in addition to file data
+    # or directory listing.
 
-list of possible content types:
+    data_string, content_type_string = \
+        return_requested_file_or_directory(parsed_http_response)
 
-content_type = "text/html; charset=UTF-8"
+    formatted_response = ("%s 200 OK\r\n"
+                          "Date: %s\r\n"
+                          "Content-Type: %s\r\n"
+                          "\r\n"
+                          "<!DOCTYPE HTML><html><body>%s</body></html>"
+                          "\r\n\r\n"
+                          % (parsed_http_response.request_version,
+                             datetime.datetime.now(),
+                             content_type_string,
+                             data_string))
 
+    return formatted_response
 
-def return_ok_http_file_response(parsed_http_response, file_data, content_type):
-    ''' Craft a string response using data from
-    the response parser, file data, and
-    a content type string. '''
-
-    ok_http_file_response = ("%s 200 OK\r\n"
-                             "Date: %s\r\n"
-                             "Content-Type: %s\r\n"
-                             "\r\n"
-                             "<!DOCTYPE HTML><html><body>%s</body></html>"
-                             % (parsed_http_response.request_version,
-                                datetime.datetime.now(),
-                                content_type,
-                                file_data))
-
-return ok_http_file_response
-
-def return_ok_http_directory_response(parsed_http_response, uri):
-    ''' Craft a string response using data from
-    the response parser, file data, and
-    a content type string. '''
-
-    ok_http_directory_response = ("%s 200 OK\r\n"
-                                  "Date: %s\r\n"
-                                  "Content-Type: %s\r\n"
-                                  "\r\n"
-                                  "<!DOCTYPE HTML><html><body>%s</body></html>"
-                                  % (parsed_http_response.request_version,
-                                     datetime.datetime.now(),
-                                     content_type,
-                                     file_data))
-
-    return ok_http_file_response
 
 def handle(socket, address):
 
@@ -130,15 +189,15 @@ def handle(socket, address):
         socket.send(server_response)
 
     elif parsed_http_response.error_code is None:
-        server_response = return_http_ok(parsed_http_response)
+        # note to self: feed the returns from
+        # return_requested_file_or_directory()
+        # into a response crafter which does header creation.
+        server_response = \
+            return_ok_http_file_or_directory_response(parsed_http_response)
         socket.send(server_response)
 
     socket.close()
 
-
-#def send_message(socket, message):
-
-#    socket.send(server_response)
 
 # Zeroeth, the missing file case:
 def return_file_not_found(parsed_http_response):
@@ -147,7 +206,7 @@ def return_file_not_found(parsed_http_response):
 
     # This is effectively an internal error that requires me to define
     # what finding and not finding a file means before it can be triggered.
-    return "%s 404 File not found ('%s')\r\n\r\n" & (
+    return "%s 404 File not found ('%s')\r\n\r\n" % (
         parsed_http_response.request_version,
         parsed_http_response.path)
 
