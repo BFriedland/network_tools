@@ -58,6 +58,8 @@ def return_requested_file_or_directory(parsed_http_response):
     # non-file content is going to have to be text/html:
     content_type = 'text/html; charset=UTF-8'
 
+    internal_error = None
+
     # I know there's some more procedural way to generate these directory
     # listings, but it could take me longer to figure out how to make it
     # than to hardcode our only two cases.
@@ -140,8 +142,9 @@ def return_requested_file_or_directory(parsed_http_response):
         except:
 
             # Then the request is not in the directory.
-            return_string = \
-                return_file_not_found(parsed_http_response)
+            #return_string = \
+            #    return_file_not_found(parsed_http_response)
+            return_string = "file_not_found"
 
     return return_string, content_type
 
@@ -155,16 +158,22 @@ def return_ok_http_file_or_directory_response(parsed_http_response):
     data_string, content_type_string = \
         return_requested_file_or_directory(parsed_http_response)
 
-    formatted_response = ("%s 200 OK\r\n"
-                          "Date: %s\r\n"
-                          "Content-Type: %s\r\n"
-                          "\r\n"
-                          "<!DOCTYPE HTML><html><body>%s</body></html>"
-                          "\r\n\r\n"
-                          % (parsed_http_response.request_version,
-                             datetime.datetime.now(),
-                             content_type_string,
-                             data_string))
+    if data_string == "file_not_found":
+
+        formatted_response = return_file_not_found(parsed_http_response)
+
+    else:
+
+        formatted_response = ("%s 200 OK\r\n"
+                              "Date: %s\r\n"
+                              "Content-Type: %s\r\n"
+                              "\r\n"
+                              "<!DOCTYPE HTML><html><body>%s</body></html>"
+                              "\r\n\r\n"
+                              % (parsed_http_response.request_version,
+                                 datetime.datetime.now(),
+                                 content_type_string,
+                                 data_string))
 
     return formatted_response
 
