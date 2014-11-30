@@ -2,9 +2,6 @@ network_tools
 =============
 
 
-
-
-
 gevent_server.py
 
     An HTTP server program running via gevent that provides access to
@@ -33,15 +30,6 @@ gevent_server.py
             the server is manually closed with an interrupt command.
             This function is called when the file is run.
 
-
-
-
-
-
-
-
-
-
     References/helped by reading/partial copies/paraphrasing:
 
         http://stackoverflow.com/questions/4685217/parse-raw-http-headers
@@ -50,13 +38,6 @@ gevent_server.py
 
         http://stackoverflow.com/questions/8369219/
             how-do-i-read-a-text-file-into-a-string-variable-in-python
-
-
-
-
-
-
-
 
 
 echo_server_and_client.py
